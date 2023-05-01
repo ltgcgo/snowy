@@ -7,9 +7,9 @@ var createEvent = function (type, data, opt) {
 			case "message": {
 				result = new MessageEvent(type, {
 					data,
-					source: opt?.source,
 					ports: opt?.ports
 				});
+				Object.defineProperty(result, "source", {value: opt?.source});
 				break;
 			};
 			default: {
@@ -21,6 +21,7 @@ var createEvent = function (type, data, opt) {
 		result.initEvent(type, false, false);
 		if (opt) {
 			if (type == "message") {
+				result.data = data;
 				if (opt.source) {
 					Object.defineProperty(result, "source", {value: opt.source});
 				};
@@ -30,7 +31,6 @@ var createEvent = function (type, data, opt) {
 			};
 		};
 	};
-	result.data = data;
 	return result;
 };
 
@@ -69,7 +69,7 @@ if (!self.BroadcastChannel) {
 		this.close = function () {
 			var indexOf = openedBc.indexOf(upThis);
 			if (indexOf > -1) {
-				upThis.postMessage({t: "d", c: channelId, i: instanceId});
+				msgPort.postMessage({t: "d", c: channelId, i: instanceId});
 				openedBc.splice(indexOf, 1);
 				if (openedId[channelId]?.constructor) {
 					indexOf = openedId[channelId].indexOf(upThis);
@@ -88,17 +88,21 @@ if (!self.BroadcastChannel) {
 		};
 		this.postMessage = function (message) {
 			if (msgPort) {
-				//console.debug(`Send one!`);
-				msgPort.postMessage({
-					t: "m",
-					c: channelId,
-					i: instanceId,
-					m: nextId,
-					d: message
-				});
-				nextId ++;
-				if (nextId > 4294967295) {
-					nextId = 0;
+				if (closed) {
+					throw(new Error(`Channel already closed`));
+				} else {
+					//console.debug(`Send one!`);
+					msgPort.postMessage({
+						t: "m",
+						c: channelId,
+						i: instanceId,
+						m: nextId,
+						d: message
+					});
+					nextId ++;
+					if (nextId > 4294967295) {
+						nextId = 0;
+					};
 				};
 			} else {
 				cachedMsg.push(message);
@@ -125,6 +129,15 @@ if (!self.BroadcastChannel) {
 		};
 		this.receiveMessage = function (sourcedMsg) {
 			// The real demuxer
+			if (sourcedMsg.c == channelId) {
+				if (sourcedMsg.i != instanceId) {
+					upThis.dispatchEvent(createEvent("message", sourcedMsg.d, {
+						source: upThis
+					}))
+				};
+			} else {
+				console.debug(`[Snowy] Channel ID mismatch. Instance ${instanceId} receives from ${channelId}, not ${sourcedMsg.c}.`);
+			};
 		};
 		// Polyfill needed EventTarget calls, since Chrome 5 doesn't support its inheritance
 		var listeners = {};
@@ -170,7 +183,7 @@ if (!self.BroadcastChannel) {
 			// Register the message routing demuxer
 			msgPort.addEventListener("message", function (ev) {
 				var msgCxt = ev.data;
-				var reportMsg = true;
+				var reportMsg = false;
 				switch (msgCxt.t) {
 					case "k": {
 						reportMsg = false;
@@ -200,7 +213,7 @@ if (!self.BroadcastChannel) {
 						break;
 					};
 					default: {
-						//
+						reportMsg = true;
 					};
 				};
 				if (reportMsg) {

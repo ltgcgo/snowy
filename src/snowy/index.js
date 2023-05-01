@@ -72,13 +72,21 @@ addEventListener("connect", function (ev) {
 				reportMsg = false;
 				break;
 			};
+			case "m": {
+				// Broadcast message
+				for (var i1 = 0; i1 < chToTab[smsg.c]?.length || 0; i1 ++) {
+					chToTab[smsg.c][i1].postMessage(smsg);
+				};
+				break;
+			};
 			case "r": {
 				// Register instance with channel
 				subTabToCh(smsg.c, msrc);
 				break;
 			};
-			case "m": {
-				// Broadcast message
+			case "d": {
+				// Unregister instance with channel
+				unsubTabToCh(smsg.c, msrc);
 				break;
 			};
 			default: {
@@ -106,8 +114,6 @@ setInterval(function () {
 			};
 			activeTabs.splice(index, 1);
 			console.info(`[Snowy] Stopped one tab.`);
-		} else {
-			//console.debug(`[Snowy] Last keepalive for tab is ${ct - ptr.lastKa} ms ago.`);
 		};
 	};
 }, 10000);
