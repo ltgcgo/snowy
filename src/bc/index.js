@@ -52,11 +52,19 @@ if (!self.BroadcastChannel) {
 		openedId[channelId].push(this);
 		// Private fields
 		var instanceId = Math.floor(Math.random() * 281474976710656);
-		var blockedId = new Set(); // Prevents loopback
+		var blockedId = []; // Prevents loopback
 		var nextId = 0;
 		var cachedMsg = [];
 		var untouched = true;
 		var closed = false;
+		Object.defineProperty(this, "id", {
+			get: function () {
+				return instanceId;
+			}
+		});
+		Object.defineProperty(this, "name", {
+			value: channelId
+		});
 		// Define calls
 		this.close = function () {
 			var indexOf = openedBc.indexOf(upThis);
@@ -162,6 +170,43 @@ if (!self.BroadcastChannel) {
 			// Register the message routing demuxer
 			msgPort.addEventListener("message", function (ev) {
 				var msgCxt = ev.data;
+				var reportMsg = true;
+				switch (msgCxt.t) {
+					case "k": {
+						reportMsg = false;
+						msgPort.postMessage({t: "k"});
+						break;
+					};
+					case "m": {
+						// Route to instances
+						var ptr = openedId[msgCxt.c];
+						if (ptr?.length) {
+							for (var index = 0; index < ptr.length; index ++) {
+								ptr[index].receiveMessage(msgCxt);
+							};
+						};
+						break;
+					};
+					case "c": {
+						// Restart registration
+						var chId = [];
+						for (var i0 = 0; i0 < openedBc.length; i0 ++) {
+							var cId = openedBc[i0].name;
+							if (chId.indexOf(cId) < 0) {
+								chId.push(cId);
+							};
+						};
+						msgPort.postMessage({t: "k", c: chId});
+						break;
+					};
+					default: {
+						//
+					};
+				};
+				if (reportMsg) {
+					// Route to instances
+					console.info(`ReceiveBroadcast`, msgCxt);
+				};
 			});
 			// Flush all cached messages
 			for (var index = 0; index < openedBc.length; index ++) {
@@ -188,7 +233,7 @@ if (!self.BroadcastChannel) {
 		};
 	};
 	// Use global shared worker
-	console.debug(`[Snowy] Snowy is utilizing a global Shared Worker.`);
+	//console.debug(`[Snowy] Snowy is utilizing a global Shared Worker.`);
 	swStart();
 } else {
 	console.info(`[Snowy] Snowy is disabled.`);
