@@ -1,0 +1,1 @@
+"use strict";(function(){addEventListener("connect",function(n){var e=n.data;console.info("SharedWorker",n)});addEventListener("message",function(n){var e=n.data;console.info("ServiceWorker",n)});console.info("[Snowy] Worker is now active.");})();
