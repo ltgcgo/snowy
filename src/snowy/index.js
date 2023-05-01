@@ -8,6 +8,7 @@
 	d: data
 } */
 
+//var activeTabs = new Set();
 var idToTab = {};
 var idInTab = {};
 
@@ -17,13 +18,33 @@ var smsgDemuxer = function (smsg) {};
 
 addEventListener("connect", function (ev) {
 	// Shared Worker
-	var smsg = ev.data;
-	console.info("SharedWorker", ev);
+	//console.info("SharedWorkerConnect", ev);
+	ev.source.postMessage({t: "swc"});
+	//activeTabs.add(ev.source);
+	ev.source.onmessage = function (ev) {
+		var smsg = ev.data;
+		console.info("SharedWorkerMessage", smsg);
+		switch (smsg.t) {
+			case "k": {
+				// Keepalive
+				break;
+			};
+			case "r": {
+				break;
+			};
+			case "m": {
+				break;
+			};
+			default: {
+				console.error(`[Snowy] Unknown message type "${smsg.t}"`);
+			};
+		};
+	};
 });
-addEventListener("message", function (ev) {
+/* addEventListener("message", function (ev) {
 	// Service Worker
 	var smsg = ev.data;
 	console.info("ServiceWorker", ev);
-});
+}); */
 
 console.info(`[Snowy] Worker is now active.`);

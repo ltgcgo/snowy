@@ -80,6 +80,7 @@ if (!self.BroadcastChannel) {
 		};
 		this.postMessage = function (message) {
 			if (msgPort) {
+				//console.debug(`Send one!`);
 				msgPort.postMessage({
 					t: "m",
 					c: channelId,
@@ -88,6 +89,9 @@ if (!self.BroadcastChannel) {
 					d: message
 				});
 				nextId ++;
+				if (nextId > 4294967295) {
+					nextId = 0;
+				};
 			} else {
 				cachedMsg.push(message);
 				console.debug(`[Snowy] Message is cached.`)
@@ -98,7 +102,9 @@ if (!self.BroadcastChannel) {
 			if (msgPort) {
 				if (untouched) {
 					msgPort.postMessage({t: "r", c: channelId, i: instanceId});
+					console.debug(`[Snowy] ${cachedMsg.length} message(s) in cache.`);
 					while (cachedMsg.length) {
+						//console.debug(`Flush one!`);
 						var currentCache = cachedMsg.shift();
 						upThis.postMessage(currentCache);
 					};
@@ -169,31 +175,21 @@ if (!self.BroadcastChannel) {
 	var swStart = function () {
 		if (!msgPort) {
 			var sw = new SharedWorker(self.SNOWY_PATH || "/snowy.js");
-			msgPort = sw.port;
-			msgPort.start();
-			msgPort.postMessage({t: "k"});
-			portStart();
+			sw.port.start();
+			var oneshot = function (ev) {
+				if (ev.data.t == "swc") {
+					sw.port.removeEventListener("message", oneshot);
+					msgPort = sw.port;
+					msgPort.postMessage({t: "k"});
+					portStart();
+				};
+			};
+			sw.port.addEventListener("message", oneshot);
 		};
 	};
-	if (navigator.serviceWorker && navigator.serviceWorker.register) {
-		// Use global service worker
-		navigator.serviceWorker.register(self.SNOWY_PATH || "/snowy.js").then(function (registration) {
-			console.debug(`[Snowy] Snowy is utilizing a global Service Worker.`);
-			msgPort = registration.active || registration.installing || registration.waiting;
-			msgPort.postMessage({t: "k"});
-			msgPort.addEventListener("statechange", function () {
-				msgPort.postMessage({t: "k"});
-			});
-			portStart();
-		}).catch(function (error) {
-			console.debug(`[Snowy] Service Worker registration failed. Utilizing a global Shared Worker instead.\n\t${error}`);
-			swStart();
-		});
-	} else {
-		// Use global shared worker
-		console.debug(`[Snowy] Snowy is utilizing a global Shared Worker.`);
-		swStart();
-	};
+	// Use global shared worker
+	console.debug(`[Snowy] Snowy is utilizing a global Shared Worker.`);
+	swStart();
 } else {
 	console.info(`[Snowy] Snowy is disabled.`);
 };
